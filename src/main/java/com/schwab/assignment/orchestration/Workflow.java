@@ -1,7 +1,14 @@
 package com.schwab.assignment.orchestration;
 
-import java.time.*;
-import java.util.*;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 public final class Workflow {
     static final int MAX_RETRIES = 2;
@@ -121,6 +128,11 @@ public final class Workflow {
 
     void audit(String stage, String action, String detail) {
         audit.add(AuditEvent.now(stage, action, detail, planVersion));
+    }
+
+    void awaitClarification(String detail) {
+        status = WorkflowStatus.AWAITING_CLARIFICATION;
+        audit("understand", "AMBIGUITY_DETECTED", detail);
     }
 
     boolean dependenciesComplete(Stage stage) {
