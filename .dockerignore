@@ -1,0 +1,9 @@
+.git
+.idea
+.vscode
+target
+work
+outputs
+data
+*.log
+.env
