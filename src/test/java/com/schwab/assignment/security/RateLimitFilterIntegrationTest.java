@@ -10,31 +10,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Verifies the registered Spring filter, configured property, and an actual HTTP endpoint work together.
- */
+/** Verifies the registered Spring filter, configured property, and an actual HTTP endpoint work together. */
 @SpringBootTest(properties = "app.rate-limit.requests-per-minute=2")
 @AutoConfigureMockMvc
 class RateLimitFilterIntegrationTest {
-    @Autowired
-    MockMvc mvc;
+  @Autowired MockMvc mvc;
 
-    @Test
-    void applicationReturns429AfterTheConfiguredPerClientLimit() throws Exception {
-        String client = "198.51.100.42";
-        mvc.perform(get("/actuator/health").with(request -> {
-            request.setRemoteAddr(client);
-            return request;
-        })).andExpect(status().isOk());
-        mvc.perform(get("/actuator/health").with(request -> {
-            request.setRemoteAddr(client);
-            return request;
-        })).andExpect(status().isOk());
-        mvc.perform(get("/actuator/health").with(request -> {
-                    request.setRemoteAddr(client);
-                    return request;
-                }))
-                .andExpect(status().isTooManyRequests())
-                .andExpect(content().json("{\"message\":\"rate limit exceeded\"}"));
-    }
+  @Test void applicationReturns429AfterTheConfiguredPerClientLimit() throws Exception {
+    String client="198.51.100.42";
+    mvc.perform(get("/actuator/health").with(request->{request.setRemoteAddr(client);return request;})).andExpect(status().isOk());
+    mvc.perform(get("/actuator/health").with(request->{request.setRemoteAddr(client);return request;})).andExpect(status().isOk());
+    mvc.perform(get("/actuator/health").with(request->{request.setRemoteAddr(client);return request;}))
+        .andExpect(status().isTooManyRequests())
+        .andExpect(content().json("{\"message\":\"rate limit exceeded\"}"));
+  }
 }

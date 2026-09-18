@@ -4,7 +4,7 @@
 
 This project demonstrates an AI-native, governed software development lifecycle using a Java URL Shortener as the sample application. It separates deterministic orchestration and policy controls from the agent-execution adapter.
 
-The solution includes Java 21, Spring Boot, REST APIs, JPA, persistent H2 storage, human release approval, policy enforcement, retries and rollback, audit history, reliability metrics, rate limiting, OpenAPI/Swagger, Actuator/Prometheus endpoints, and 31 automated tests: 25 unit and 6 integration tests.
+The solution includes Java 21, Spring Boot, REST APIs, JPA, persistent H2 storage, human release approval, policy enforcement, retries and rollback, append-only audit history, run reports, reliability metrics, rate limiting, OpenAPI/Swagger, Actuator/Prometheus endpoints, and 38 automated tests: 30 unit and 8 integration tests.
 
 ## 1. Architecture
 
@@ -20,23 +20,37 @@ Spring Boot REST API -> RateLimitFilter
 UrlController          WorkflowController
    |                         |
    v                         v
-UrlService              Orchestrator
-   |                    /     |       \
-   v                   v      v        v
-ShortUrlRepository  PolicyGuard  StageExecutor  Audit/Persistence
+UrlService              Orchestrator (REST facade)
+   |                         |
+   v                         v
+ShortUrlRepository    WorkflowScheduler (engine)
+                              |
+          +-------------------+-------------------+
+          v                   v                   v
+   WorkflowGraph        PolicyGuard          AgentAdapter
+   (validated DAG)      (gate)          StageExecutor implementations
                               |
                               v
-                  DeterministicStageExecutor
-                  (replaceable live-agent adapter)
+                   Audit ledger / run report / H2 snapshots
 ```
 
 Java owns API contracts, state, policies, approvals, persistence, recovery, audit records, and metrics. `StageExecutor` is an allow-listed boundary for a future credentialed AI/tool runtime; the supplied executor is deterministic and performs no network or privileged actions.
+
+The structure follows the useful parts of Forge's engine model: a graph is validated before it runs; the scheduler operates in dependency-safe batches; agent execution is behind a provider-neutral adapter; policy is separate from agent code; and a report is derived from durable audit history. The URL shortener remains the sample workload, not the orchestration engine itself.
 
 ## 2. Project Structure
 
 ```text
 src/main/java/com/schwab/assignment/
-├── orchestration/   workflow graph, policies, audit, metrics, executor
+├── api/             workflow and metrics REST adapters
+├── agents/          provider-neutral agent adapter and stage executors
+├── artifacts/       requirement, task, and brownfield evidence generation
+├── engine/          workflow state, scheduler, orchestration facade, snapshots
+├── graph/           validated DAG, stages, state transitions, gate outcomes
+├── ledger/          append-only durable audit records
+├── persistence/     H2/JPA implementation of the workflow storage port
+├── policy/          explicit policy decisions before stage execution
+├── report/          durable workflow run-report projection
 ├── url/             URL API, service, entity, repository
 ├── security/        rate limiting filter
 └── config/          OpenAPI configuration
@@ -46,10 +60,14 @@ src/main/resources/
 
 src/test/java/com/schwab/assignment/
 ├── url/
-├── orchestration/
+├── agents/ artifacts/ engine/ graph/ policy/
 ├── security/
 └── integration/
 ```
+
+The module boundaries intentionally mirror the architectural roles found in Forge—graph, engine, agent adapters, policy, ledger, and reporting—but this is an independently implemented Spring Boot application. `api` is an adapter only: it delegates workflow state changes to `engine`; the engine schedules validated `graph` stages, consults the `PolicyEvaluator` port, invokes `agents`, and exposes a `report` projection. The engine persists immutable `WorkflowSnapshot` values through the `WorkflowStore` output port; `persistence/JpaWorkflowStore` is the H2/JPA adapter and focused tests use `InMemoryWorkflowStore`. The `artifacts` module is isolated so brownfield scanning remains reviewable and can be disabled in test execution.
+
+See [docs/architecture.md](docs/architecture.md) for the dependency direction, extension points, and module responsibilities.
 
 ## 3. Workflow Model
 
@@ -119,6 +137,10 @@ Maven phases are separated: `mvn test` runs unit tests; `mvn verify` runs unit t
 - Requirements that request expiry without a measurable duration (for example, `Make links expire`) stop in `AWAITING_CLARIFICATION`; a replan with `Expire links after 30 days` resumes normal planning.
 - A `brownfield` workflow scans local Java sources and writes an impact-analysis artifact under `work/generated/`. It lists discovered controllers, services, entities, repositories, API-mapping sources, tests, and the observed URL data flow.
 - Independent ready stages run as a bounded parallel batch through an `ExecutorService`; the orchestrator waits at each dependency gate before progressing. Release still requires successful implementation, test, documentation, and explicit human approval.
+- The workflow graph is validated at startup: duplicate stages, unknown dependencies, self-dependencies, and cycles are rejected before execution. Its deterministic layers expose which stages may execute in parallel.
+- Replanning accepts an optional `changedStage`; only that stage and its downstream dependents are invalidated. Omitting it defaults to `understand`, which correctly rebuilds the whole plan for a changed requirement.
+- The scheduler uses explicit sealed gate outcomes: `Pass`, `Fail`, `Block`, and `Escalate`. This prevents policy decisions from collapsing into an ambiguous boolean result.
+- Operators may pause, resume, or abort runs. Interventions are auditable and a paused workflow persists the state it must restore, including a pending approval gate.
 - Architecture decisions are documented in [docs/adr](docs/adr), including Java/Spring, H2, agent execution, policy controls, and parallel orchestration.
 
 To demonstrate controlled real engineering validation from a trusted source checkout, enable the explicit `command` Spring profile. It allow-lists only `mvn -q -DskipTests compile` for implementation and `mvn -q verify` for validation; command exit codes become stage success or failure evidence. `verify` deliberately includes the Failsafe integration tests. Docker Compose stays in deterministic mode because its runtime image intentionally contains neither a source checkout nor Maven.
@@ -128,6 +150,10 @@ mvn spring-boot:run -Dspring-boot.run.profiles=command
 ```
 
 The default mode remains deterministic, which makes normal application startup and automated tests repeatable and avoids launching build commands unexpectedly. The `command` profile is the intentional, visible demonstration mode for a trusted local checkout.
+
+Defense in depth: `agentic.disable-shell-execution=true` makes the command executor record a successful, explicit “command not run” result without starting a process. The test configuration enables this guard so `mvn verify -Dspring.profiles.active=command` cannot recursively start nested Maven builds. Do not set this flag for a trusted local command-mode demonstration.
+
+Generated requirements, task plans, and brownfield artifacts are controlled by `agent.artifacts.enabled` (default `true`). It is disabled in the test configuration, so Spring-context tests do not leave generated Markdown files in the repository.
 
 ## 9. Container Deployment
 
@@ -150,7 +176,11 @@ The application is available at `http://localhost:8080`. Stop the stack with `do
 | `POST /api/workflows/{id}/approve` | Approve the current plan release. |
 | `POST /api/workflows/{id}/failure` | Record failure, rollback, and safe stop. |
 | `POST /api/workflows/{id}/retry` | Attempt bounded recovery. |
+| `POST /api/workflows/{id}/pause` | Pause a non-terminal workflow. |
+| `POST /api/workflows/{id}/resume` | Resume the workflow's prior state. |
+| `POST /api/workflows/{id}/abort` | Abort a non-terminal workflow with an audit reason. |
 | `POST /api/workflows/{id}/replan` | Clarify a requirement and create a new plan. |
+| `GET /api/workflows/{id}/report` | Read a ledger-derived workflow report and action counts. |
 | `GET /api/metrics` | Domain workflow reliability metrics. |
 
 OpenAPI: `http://localhost:8080/api-docs`  
@@ -164,6 +194,14 @@ Example URL creation:
 curl -X POST http://localhost:8080/api/urls \
   -H 'content-type: application/json' \
   -d '{"destination":"https://example.com/products"}'
+```
+
+Example selective replan (only documentation and release are invalidated):
+
+```bash
+curl -X POST http://localhost:8080/api/workflows/<workflow-id>/replan \
+  -H 'content-type: application/json' \
+  -d '{"changedRequirement":"Correct the API documentation","changedStage":"docs"}'
 ```
 
 ## 11. Limitations and Next Steps

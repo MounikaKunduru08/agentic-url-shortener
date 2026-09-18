@@ -1,0 +1,8 @@
+agent:
+  execution:
+    mode: command
+  artifacts:
+    enabled: false
+agentic:
+  # Prevent Maven test runs using -Dspring.profiles.active=command from spawning nested Maven builds.
+  disable-shell-execution: true

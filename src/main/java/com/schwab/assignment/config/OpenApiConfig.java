@@ -7,8 +7,5 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 class OpenApiConfig {
-    @Bean
-    OpenAPI urlShortenerOpenApi() {
-        return new OpenAPI().info(new Info().title("Agentic URL Shortener API").version("1.0.0").description("Governed URL shortening and SDLC workflow orchestration."));
-    }
+  @Bean OpenAPI urlShortenerOpenApi() { return new OpenAPI().info(new Info().title("Agentic URL Shortener API").version("1.0.0").description("Governed URL shortening and SDLC workflow orchestration.")); }
 }
