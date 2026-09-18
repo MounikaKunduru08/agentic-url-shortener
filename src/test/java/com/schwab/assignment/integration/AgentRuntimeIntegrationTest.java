@@ -8,12 +8,17 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Verifies the active StageExecutor participates in the governed runtime through the workflow API. */
+/**
+ * Verifies the active StageExecutor participates in the governed runtime through the workflow API.
+ */
 @SpringBootTest
 class AgentRuntimeIntegrationTest {
-  @Autowired Orchestrator orchestrator;
-  @Test void stageExecutorProducesAuditableStageResults() {
-    Workflow workflow=orchestrator.create("greenfield","Build URL shortener");
-    assertTrue(workflow.audit().stream().anyMatch(event->event.detail().contains("requirements-agent")));
-  }
+    @Autowired
+    Orchestrator orchestrator;
+
+    @Test
+    void stageExecutorProducesAuditableStageResults() {
+        Workflow workflow = orchestrator.create("greenfield", "Build URL shortener");
+        assertTrue(workflow.audit().stream().anyMatch(event -> event.detail().contains("requirements-agent")));
+    }
 }

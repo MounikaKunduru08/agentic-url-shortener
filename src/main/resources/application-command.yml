@@ -1,0 +1,7 @@
+spring:
+  config:
+    activate:
+      on-profile: command
+agent:
+  execution:
+    mode: command

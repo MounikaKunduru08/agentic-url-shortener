@@ -1,18 +1,16 @@
 package com.schwab.assignment;
 
-import com.schwab.assignment.shortener.UrlShortenerService.UrlNotFoundException;
-import org.springframework.http.*;
+import com.schwab.assignment.url.UrlService.UrlNotFoundException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.NoSuchElementException;
 
-
 @RestControllerAdvice
 public class ApiExceptionHandler {
-    record ApiError(String message) {
-    }
-
     @ExceptionHandler({UrlNotFoundException.class, NoSuchElementException.class})
     ResponseEntity<ApiError> notFound(RuntimeException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError(exception.getMessage()));
@@ -26,5 +24,8 @@ public class ApiExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ApiError> validation(MethodArgumentNotValidException exception) {
         return ResponseEntity.badRequest().body(new ApiError("request validation failed"));
+    }
+
+    record ApiError(String message) {
     }
 }

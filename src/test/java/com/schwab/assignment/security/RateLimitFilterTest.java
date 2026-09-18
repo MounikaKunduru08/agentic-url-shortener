@@ -15,28 +15,50 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class RateLimitFilterTest {
-  @Controller static class PingController {
-    final AtomicInteger calls=new AtomicInteger();
-    @GetMapping("/ping") @ResponseBody String ping(){calls.incrementAndGet();return "ok";}
-  }
-  @Test void returnsTooManyRequestsAfterConfiguredLimit() throws Exception {
-    MockMvc mvc=MockMvcBuilders.standaloneSetup(new PingController()).addFilters(new RateLimitFilter(1)).build();
-    mvc.perform(get("/ping")).andExpect(status().isOk());
-    mvc.perform(get("/ping")).andExpect(status().isTooManyRequests())
-        .andExpect(content().contentType("application/json"))
-        .andExpect(content().json("{\"message\":\"rate limit exceeded\"}"));
-  }
-  @Test void blockedRequestDoesNotReachTheController() throws Exception {
-    PingController controller=new PingController();
-    MockMvc mvc=MockMvcBuilders.standaloneSetup(controller).addFilters(new RateLimitFilter(1)).build();
-    mvc.perform(get("/ping")).andExpect(status().isOk());
-    mvc.perform(get("/ping")).andExpect(status().isTooManyRequests());
-    assertEquals(1,controller.calls.get());
-  }
-  @Test void separateClientsReceiveSeparateBuckets() throws Exception {
-    MockMvc mvc=MockMvcBuilders.standaloneSetup(new PingController()).addFilters(new RateLimitFilter(1)).build();
-    mvc.perform(get("/ping").with(request->{request.setRemoteAddr("198.51.100.10");return request;})).andExpect(status().isOk());
-    mvc.perform(get("/ping").with(request->{request.setRemoteAddr("198.51.100.11");return request;})).andExpect(status().isOk());
-    mvc.perform(get("/ping").with(request->{request.setRemoteAddr("198.51.100.10");return request;})).andExpect(status().isTooManyRequests());
-  }
+    @Test
+    void returnsTooManyRequestsAfterConfiguredLimit() throws Exception {
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new PingController()).addFilters(new RateLimitFilter(1)).build();
+        mvc.perform(get("/ping")).andExpect(status().isOk());
+        mvc.perform(get("/ping")).andExpect(status().isTooManyRequests())
+                .andExpect(content().contentType("application/json"))
+                .andExpect(content().json("{\"message\":\"rate limit exceeded\"}"));
+    }
+
+    @Test
+    void blockedRequestDoesNotReachTheController() throws Exception {
+        PingController controller = new PingController();
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(controller).addFilters(new RateLimitFilter(1)).build();
+        mvc.perform(get("/ping")).andExpect(status().isOk());
+        mvc.perform(get("/ping")).andExpect(status().isTooManyRequests());
+        assertEquals(1, controller.calls.get());
+    }
+
+    @Test
+    void separateClientsReceiveSeparateBuckets() throws Exception {
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new PingController()).addFilters(new RateLimitFilter(1)).build();
+        mvc.perform(get("/ping").with(request -> {
+            request.setRemoteAddr("198.51.100.10");
+            return request;
+        })).andExpect(status().isOk());
+        mvc.perform(get("/ping").with(request -> {
+            request.setRemoteAddr("198.51.100.11");
+            return request;
+        })).andExpect(status().isOk());
+        mvc.perform(get("/ping").with(request -> {
+            request.setRemoteAddr("198.51.100.10");
+            return request;
+        })).andExpect(status().isTooManyRequests());
+    }
+
+    @Controller
+    static class PingController {
+        final AtomicInteger calls = new AtomicInteger();
+
+        @GetMapping("/ping")
+        @ResponseBody
+        String ping() {
+            calls.incrementAndGet();
+            return "ok";
+        }
+    }
 }

@@ -27,6 +27,7 @@ import java.util.concurrent.Future;
  */
 @Service
 public class Orchestrator {
+    private static final Map<String, Stage> GRAPH = Map.of("understand", new Stage("understand", Set.of(), false, "requirements-agent"), "design", new Stage("design", Set.of("understand"), false, "architecture-agent"), "implement", new Stage("implement", Set.of("design"), false, "implementation-agent"), "test", new Stage("test", Set.of("design"), false, "verification-agent"), "docs", new Stage("docs", Set.of("understand"), false, "documentation-agent"), "release", new Stage("release", Set.of("implement", "test", "docs"), true, "release-agent"));
     private final Map<UUID, Workflow> memory = new ConcurrentHashMap<>();
     private final WorkflowRecordRepository records;
     private final WorkflowAuditRepository audits;
@@ -39,24 +40,24 @@ public class Orchestrator {
         thread.setDaemon(true);
         return thread;
     });
-    private static final Map<String, Stage> GRAPH = Map.of(
-            "understand", new Stage("understand", Set.of(), false, "requirements-agent"),
-            "design", new Stage("design", Set.of("understand"), false, "architecture-agent"),
-            "implement", new Stage("implement", Set.of("design"), false, "implementation-agent"),
-            "test", new Stage("test", Set.of("design"), false, "verification-agent"),
-            "docs", new Stage("docs", Set.of("understand"), false, "documentation-agent"),
-            "release", new Stage("release", Set.of("implement", "test", "docs"), true, "release-agent"));
 
     /**
      * Supports focused unit tests without a Spring persistence context.
      */
     public Orchestrator() {
+        this((stage, workflow) -> new StageExecutor.ExecutionResult(true, "validation gate passed by " + stage.agent()), EngineeringArtifacts.disabled());
+    }
+
+    /**
+     * Test seam: keeps focused workflow tests free of generated-artifact filesystem writes.
+     */
+    Orchestrator(StageExecutor executor, EngineeringArtifacts artifacts) {
         records = null;
         audits = null;
         mapper = new ObjectMapper();
         policies = new PolicyGuard();
-        executor = (stage, workflow) -> new StageExecutor.ExecutionResult(true, "validation gate passed by " + stage.agent());
-        artifacts = new EngineeringArtifacts();
+        this.executor = executor;
+        this.artifacts = artifacts;
     }
 
     @Autowired

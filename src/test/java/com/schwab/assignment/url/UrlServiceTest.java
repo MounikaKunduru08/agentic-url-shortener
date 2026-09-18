@@ -1,18 +1,26 @@
-package com.schwab.assignment.shortener;
+package com.schwab.assignment.url;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.*;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+
 import java.util.Optional;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(org.mockito.junit.jupiter.MockitoExtension.class)
 class UrlServiceTest {
     @Mock
     ShortUrlRepository repository;
     @InjectMocks
-    UrlShortenerService service;
+    UrlService service;
 
     @Test
     void persistsNewShortUrlForValidHttpsDestination() {
@@ -40,6 +48,6 @@ class UrlServiceTest {
     @Test
     void unknownCodeHasClearException() {
         when(repository.findByCode("missing")).thenReturn(Optional.empty());
-        assertThrows(UrlShortenerService.UrlNotFoundException.class, () -> service.analytics("missing"));
+        assertThrows(UrlService.UrlNotFoundException.class, () -> service.analytics("missing"));
     }
 }

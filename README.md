@@ -4,7 +4,7 @@
 
 This project demonstrates an AI-native, governed software development lifecycle using a Java URL Shortener as the sample application. It separates deterministic orchestration and policy controls from the agent-execution adapter.
 
-The solution includes Java 21, Spring Boot, REST APIs, JPA, persistent H2 storage, human release approval, policy enforcement, retries and rollback, audit history, reliability metrics, rate limiting, OpenAPI/Swagger, Actuator/Prometheus endpoints, and 26 automated tests: 20 unit and 6 integration tests.
+The solution includes Java 21, Spring Boot, REST APIs, JPA, persistent H2 storage, human release approval, policy enforcement, retries and rollback, audit history, reliability metrics, rate limiting, OpenAPI/Swagger, Actuator/Prometheus endpoints, and 31 automated tests: 25 unit and 6 integration tests.
 
 ## 1. Architecture
 
@@ -121,11 +121,13 @@ Maven phases are separated: `mvn test` runs unit tests; `mvn verify` runs unit t
 - Independent ready stages run as a bounded parallel batch through an `ExecutorService`; the orchestrator waits at each dependency gate before progressing. Release still requires successful implementation, test, documentation, and explicit human approval.
 - Architecture decisions are documented in [docs/adr](docs/adr), including Java/Spring, H2, agent execution, policy controls, and parallel orchestration.
 
-To demonstrate controlled real engineering validation from a trusted source checkout, enable command mode. It allow-lists only `mvn -q -DskipTests compile` for implementation and `mvn -q test` for validation; command exit codes become stage success or failure evidence.
+To demonstrate controlled real engineering validation from a trusted source checkout, enable the explicit `command` Spring profile. It allow-lists only `mvn -q -DskipTests compile` for implementation and `mvn -q verify` for validation; command exit codes become stage success or failure evidence. `verify` deliberately includes the Failsafe integration tests. Docker Compose stays in deterministic mode because its runtime image intentionally contains neither a source checkout nor Maven.
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.arguments='--agent.execution.mode=command'
+mvn spring-boot:run -Dspring-boot.run.profiles=command
 ```
+
+The default mode remains deterministic, which makes normal application startup and automated tests repeatable and avoids launching build commands unexpectedly. The `command` profile is the intentional, visible demonstration mode for a trusted local checkout.
 
 ## 9. Container Deployment
 
@@ -166,4 +168,4 @@ curl -X POST http://localhost:8080/api/urls \
 
 ## 11. Limitations and Next Steps
 
-This is a runnable assessment prototype. The release approver is caller-provided rather than authenticated, H2 is for local use, and the agent adapter is deterministic. A production increment should add identity/RBAC, a managed database with backup/retention, a shared gateway rate limiter, idempotency and URL reputation services, custom Prometheus workflow meters, and a credentialed live-agent adapter with strict tool allow-lists and output validation.
+This is a runnable assessment prototype. The release approver is caller-provided rather than authenticated, H2 is for local use, and the default agent adapter is deterministic. A production increment should add identity/RBAC, a managed database with backup/retention, a shared gateway rate limiter, idempotency and URL reputation services, custom Prometheus workflow meters, and a credentialed live-agent adapter with strict tool allow-lists and output validation.

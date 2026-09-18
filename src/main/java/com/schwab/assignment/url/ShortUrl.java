@@ -1,44 +1,30 @@
-package com.schwab.assignment.shortener;
+package com.schwab.assignment.url;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 
 import java.time.Instant;
 
 @Entity
 public class ShortUrl {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(
-            unique = true,
-            nullable = false,
-            updatable = false
-    )
+    @Column(unique = true, nullable = false, updatable = false)
     private String code;
-
-    @Column(
-            nullable = false,
-            length = 2048
-    )
+    @Column(nullable = false, length = 2048)
     private String destination;
-
     @Column(nullable = false)
-    private Instant createdAt = Instant.now();
-
+    private final Instant createdAt = Instant.now();
     private long redirects;
 
-    /**
-     * Required by JPA.
-     */
     protected ShortUrl() {
     }
 
-    public ShortUrl(
-            String code,
-            String destination) {
-
+    public ShortUrl(String code, String destination) {
         this.code = code;
         this.destination = destination;
     }
